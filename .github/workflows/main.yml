@@ -1,0 +1,83 @@
+name: Build Official Go x86_64 with Custom Patch
+
+on:
+  workflow_dispatch:
+    inputs:
+      go_ref:
+        description: '官方 Go 版本 (如 master, go1.24.0)'
+        required: true
+        default: 'master'
+      version_name:
+        description: '产物名称'
+        required: true
+        default: 'go-x86_64-custom'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      # 1️⃣ 下载官方 Go 源码 (不使用 Fork，直接拉取 golang/go)
+      - name: Checkout Official Go
+        uses: actions/checkout@v4
+        with:
+          repository: 'golang/go'
+          ref: ${{ github.event.inputs.go_ref }}
+          fetch-depth: 1
+
+      # 2️⃣ 注入你的 syscall 修改 (关键步骤)
+      # 你可以将下面的内容替换为你真实的补丁代码
+      - name: Inject Custom Syscall Change
+        run: |
+          # 示例：假设你要修改针对 arm64 的某个系统调用常量或逻辑
+          # 你可以直接用 cat 覆盖官方文件，或者用 sed 修改
+          # 这里以修改 syscall/syscall_linux_arm64.go 为例
+          
+          echo "// 修改后的内容" > src/syscall/syscall_linux_arm64.go
+          cat <<EOF >> src/syscall/syscall_linux_arm64.go
+          package syscall
+          // 在这里贴入你修改后的完整代码内容
+          // ... 你的 syscall 代码 ...
+          EOF
+          
+          echo "补丁注入成功！"
+
+      # 3️⃣ 准备 Bootstrap 环境
+      - name: Setup Bootstrap Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      # 4️⃣ 编译运行在 x86 上的 Go 工具链
+      - name: Build Go for x86_64
+        shell: bash
+        run: |
+          export GOROOT_BOOTSTRAP=$GOROOT
+          export GOOS=linux
+          export GOARCH=amd64
+          export CGO_ENABLED=0 # 纯静态编译，方便在各种 x86 环境运行
+          
+          cd src
+          ./make.bash
+
+      # 5️⃣ 打包并发布
+      - name: Package and Release
+        shell: bash
+        run: |
+          # 包含修改后的源码，以便交叉编译时使用
+          rm -rf pkg/obj pkg/bootstrap
+          TAR_FILE="${{ github.event.inputs.version_name }}.tar.gz"
+          
+          # 打包当前目录（已经是官方源码 + 你的修改）
+          tar --exclude='.git' -czvf "../$TAR_FILE" .
+          
+          # 使用 GitHub CLI 创建 Release
+          cd ..
+          gh release create "${{ github.event.inputs.version_name }}-${{ github.run_number }}" \
+            "$TAR_FILE" \
+            --title "Go SDK (x86) with ARM64 Patch" \
+            --notes "运行平台: x86_64 | 包含的补丁目标: arm64 syscall"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
