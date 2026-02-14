@@ -10,7 +10,7 @@ on:
       version_name:
         description: '发布版本标识'
         required: true
-        default: 'go-x86_64-custom'
+        default: 'go-legacy-amd64'
 
 jobs:
   build:
