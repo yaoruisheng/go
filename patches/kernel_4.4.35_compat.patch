@@ -73,14 +73,8 @@
  }
 --- src/syscall/syscall_linux.go
 +++ src/syscall/syscall_linux.go
-@@ -107,21 +107,9 @@
- //sys	faccessat2(dirfd int, path string, mode uint32, flags int) (err error) = _SYS_faccessat2
+@@ -158,15 +158,2 @@
  
- func Faccessat(dirfd int, path string, mode uint32, flags int) (err error) {
--	if flags == 0 {
--		return faccessat(dirfd, path, mode)
--	}
--
 -	// Attempt to use the newer faccessat2, which supports flags directly,
 -	// falling back if it doesn't exist.
 -	//
@@ -93,19 +87,14 @@
 -			return err
 -		}
 -	}
-+	// Kernel 4.4.35 适配：直接使用 faccessat 传统路径
-+	if flags == 0 {
-+		return faccessat(dirfd, path, mode)
-+	}
- 
+-
  	// The Linux kernel faccessat system call does not take any flags.
-@@ -201,16 +189,11 @@
- //sys	fchmodat2(dirfd int, path string, mode uint32, flags int) (err error) = _SYS_fchmodat2
- 
+@@ -246,16 +233,8 @@
  func Fchmodat(dirfd int, path string, mode uint32, flags int) error {
 -	// Linux fchmodat doesn't support the flags parameter, but fchmodat2 does.
 -	// Try fchmodat2 if flags are specified.
--	if flags != 0 {
++	// Kernel 4.4.35 适配：强制降级到 fchmodat
+ 	if flags != 0 {
 -		err := fchmodat2(dirfd, path, mode, flags)
 -		if err == ENOSYS {
 -			// fchmodat2 isn't available. If the flags are known to be valid,
@@ -115,15 +104,9 @@
 -			} else if flags&(_AT_SYMLINK_NOFOLLOW|_AT_EMPTY_PATH) != 0 {
 -				return EOPNOTSUPP
 -			}
--		}
--		return err
--	}
-+	// Kernel 4.4.35 适配：强制降级到 fchmodat
-+	if flags != 0 {
 +		if flags&^(_AT_SYMLINK_NOFOLLOW|_AT_EMPTY_PATH) != 0 {
 +			return EINVAL
-+		}
+ 		}
+-		return err
 +		return EOPNOTSUPP
-+	}
- 	return fchmodat(dirfd, path, mode)
- }
+ 	}
