@@ -74,7 +74,7 @@ jobs:
           cd ..
           gh release create "${{ github.event.inputs.version_name }}-${{ github.run_number }}" \
             "$TAR_FILE" \
-            --repo "OWNER/REPO" \
+            --repo "${{ github.repository }}" \
             --title "Go SDK (x86_64) Kernel 4.4 Compat" \
             --notes "基于官方 Go ${{ github.event.inputs.go_ref }} 构建。补丁目标：内核 4.4.35。禁用了 clone3, faccessat2, fchmodat2 和 PidFD。"
         env:
