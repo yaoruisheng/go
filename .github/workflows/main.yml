@@ -76,6 +76,6 @@ jobs:
             "$TAR_FILE" \
             --repo "${{ github.repository }}" \
             --title "Go SDK (x86_64) Kernel 4.4 Compat" \
-            --notes "基于官方 Go ${{ github.event.inputs.go_ref }} 构建。补丁目标：内核 4.4.35。禁用了 clone3, faccessat2, fchmodat2 和 PidFD。"
+            --notes "基于官方 Go ${{ github.event.inputs.go_ref }} 构建。补丁目标：内核 4.4.35。禁用了 faccessat2, fchmodat2。"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
