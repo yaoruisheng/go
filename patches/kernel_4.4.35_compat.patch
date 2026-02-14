@@ -41,3 +41,25 @@
 -		return err
 +		return EOPNOTSUPP
  	}
+--- src/os/pidfd_linux.go
++++ src/os/pidfd_linux.go
+@@ -98,7 +98,8 @@
+ 
+ // pidfdWorks returns whether we can use pidfd on this system.
+ func pidfdWorks() bool {
+-	return checkPidfdOnce() == nil
++	// Force disable pidfd for legacy kernels (like Linux 4.4)
++	return false
+ }
+ 
+ // checkPidfdOnce is used to only check whether pidfd works once.
+@@ -113,6 +114,9 @@
+ // execution environment in which the above system calls are restricted by
+ // seccomp or a similar technology.
+ func checkPidfd() error {
++	// Return early to avoid triggering syscall 434 (pidfd_open)
++	return syscall.ENOSYS
++
+ 	// In Android version < 12, pidfd-related system calls are not allowed
+ 	// by seccomp and trigger the SIGSYS signal. See issue #69065.
+ 	if runtime.GOOS == "android" {
