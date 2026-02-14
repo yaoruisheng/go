@@ -73,7 +73,11 @@
  }
 --- src/syscall/syscall_linux.go
 +++ src/syscall/syscall_linux.go
-@@ -158,15 +158,2 @@
+@@ -16,3 +16,2 @@
+ 	"internal/strconv"
+-	"runtime"
+ 	"slices"
+@@ -158,15 +157,2 @@
  
 -	// Attempt to use the newer faccessat2, which supports flags directly,
 -	// falling back if it doesn't exist.
@@ -89,7 +93,7 @@
 -	}
 -
  	// The Linux kernel faccessat system call does not take any flags.
-@@ -246,16 +233,8 @@
+@@ -246,16 +232,8 @@
  func Fchmodat(dirfd int, path string, mode uint32, flags int) error {
 -	// Linux fchmodat doesn't support the flags parameter, but fchmodat2 does.
 -	// Try fchmodat2 if flags are specified.
