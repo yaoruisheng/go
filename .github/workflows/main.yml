@@ -39,14 +39,14 @@ jobs:
         run: |
           # 进入 Go 源码目录应用来自补丁仓库的 patch 文件
           cd go-src
-          #patch -p0 < ../my-repo/patches/kernel_4.4.35_compat.patch
+          patch -p0 < ../my-repo/patches/kernel_4.4.35_compat.patch
           echo "补丁注入成功！"
 
       # 4.准备 Bootstrap 环境
       - name: Setup Bootstrap Go
         uses: actions/setup-go@v5
         with:
-          go-version: 'stable'
+          go-version: 1.18
 
       # 5.编译 Go 工具链
       - name: Build Go for x86_64
