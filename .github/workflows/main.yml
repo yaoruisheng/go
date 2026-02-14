@@ -46,7 +46,7 @@ jobs:
       - name: Setup Bootstrap Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.18
+          go-version: "stable"
 
       # 5.编译 Go 工具链
       - name: Build Go for x86_64
