@@ -1,79 +1,18 @@
---- src/syscall/exec_linux.go
-+++ src/syscall/exec_linux.go
-@@ -167,23 +167,9 @@
- 	flags = sys.Cloneflags
- 	if sys.Cloneflags&CLONE_NEWUSER == 0 && sys.Unshareflags&CLONE_NEWUSER == 0 {
- 		flags |= CLONE_VFORK | CLONE_VM
- 	}
--	if sys.PidFD != nil {
--		flags |= CLONE_PIDFD
--	}
--	// Whether to use clone3.
--	if sys.UseCgroupFD || flags&CLONE_NEWTIME != 0 || forceClone3 {
--		clone3 = &cloneArgs{
--			flags:      uint64(flags),
--			exitSignal: uint64(SIGCHLD),
--		}
--		if sys.UseCgroupFD {
--			clone3.flags |= CLONE_INTO_CGROUP
--			clone3.cgroup = uint64(sys.CgroupFD)
--		}
--		if sys.PidFD != nil {
--			clone3.pidFD = uint64(uintptr(unsafe.Pointer(&pidfd)))
--		}
--	}
-+	// Kernel 4.4.35 适配：禁用 clone3 和 PidFD 标志位
-+	flags &^= uintptr(CLONE_PIDFD)
-+	clone3 = nil
- 
- 	// About to call fork.
- 	// No more allocation or calls of non-assembly functions.
-@@ -481,42 +467,8 @@
- //go:linkname os_checkClonePidfd os.checkClonePidfd
- func os_checkClonePidfd() error {
--	pidfd := int32(-1)
--	pid, errno := doCheckClonePidfd(&pidfd)
--	if errno != 0 {
--		return errno
--	}
--
--	if pidfd == -1 {
--		// Bad: CLONE_PIDFD failed to provide a pidfd. Reap the process
--		// before returning.
--
--		var err error
--		for {
--			var status WaitStatus
--			// WCLONE is an untyped constant that sets bit 31, so
--			// it cannot convert directly to int on 32-bit
--			// GOARCHes. We must convert through another type
--			// first.
--			flags := uint(WCLONE)
--			_, err = Wait4(int(pid), &status, int(flags), nil)
--			if err != EINTR {
--				break
--			}
--		}
--		if err != nil {
--			return err
--		}
--
--		return errpkg.New("clone(CLONE_PIDFD) failed to return pidfd")
--	}
--
--	// Good: CLONE_PIDFD provided a pidfd. Reap the process and close the
--	// pidfd.
--	defer Close(int(pidfd))
--
--	return nil
-+	// Kernel 4.4.35 适配：直接返回 ENOSYS，避免编译器触发 waitid 异常
-+	return errpkg.New("ENOSYS")
- }
 --- src/syscall/syscall_linux.go
 +++ src/syscall/syscall_linux.go
-@@ -16,1 +16,0 @@
+@@ -16,3 +16,2 @@
+ 	"internal/strconv"
 -	"runtime"
-@@ -158,15 +157,6 @@
+ 	"slices"
+@@ -158,15 +157,2 @@
+ 
+-	// Attempt to use the newer faccessat2, which supports flags directly,
+-	// falling back if it doesn't exist.
+-	//
+-	// Don't attempt on Android, which does not allow faccessat2 through
+-	// its seccomp policy [1] on any version of Android as of 2022-12-20.
+-	//
+-	// [1] https://cs.android.com/android/platform/superproject/+/master:bionic/libc/SECCOMP_BLOCKLIST_APP.TXT;l=4;drc=dbb8670dfdcc677f7e3b9262e93800fa14c4e417
 -	if runtime.GOOS != "android" {
 -		if err := faccessat2(dirfd, path, mode, flags); err != ENOSYS && err != EPERM {
 -			return err
@@ -81,21 +20,24 @@
 -	}
 -
  	// The Linux kernel faccessat system call does not take any flags.
-@@ -246,16 +236,8 @@
+@@ -246,16 +232,8 @@
  func Fchmodat(dirfd int, path string, mode uint32, flags int) error {
--	if flags != 0 {
+-	// Linux fchmodat doesn't support the flags parameter, but fchmodat2 does.
+-	// Try fchmodat2 if flags are specified.
++	// Kernel 4.4.35 适配：强制降级到 fchmodat
+ 	if flags != 0 {
 -		err := fchmodat2(dirfd, path, mode, flags)
 -		if err == ENOSYS {
+-			// fchmodat2 isn't available. If the flags are known to be valid,
+-			// return EOPNOTSUPP to indicate that fchmodat doesn't support them.
 -			if flags&^(_AT_SYMLINK_NOFOLLOW|_AT_EMPTY_PATH) != 0 {
 -				return EINVAL
 -			} else if flags&(_AT_SYMLINK_NOFOLLOW|_AT_EMPTY_PATH) != 0 {
 -				return EOPNOTSUPP
 -			}
--		}
--		return err
-+	if flags != 0 {
 +		if flags&^(_AT_SYMLINK_NOFOLLOW|_AT_EMPTY_PATH) != 0 {
 +			return EINVAL
-+		}
+ 		}
+-		return err
 +		return EOPNOTSUPP
  	}
