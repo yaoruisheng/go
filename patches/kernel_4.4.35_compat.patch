@@ -28,6 +28,49 @@
  
  	// About to call fork.
  	// No more allocation or calls of non-assembly functions.
+@@ -481,42 +467,8 @@
+ //go:linkname os_checkClonePidfd os.checkClonePidfd
+ func os_checkClonePidfd() error {
+-	pidfd := int32(-1)
+-	pid, errno := doCheckClonePidfd(&pidfd)
+-	if errno != 0 {
+-		return errno
+-	}
+-
+-	if pidfd == -1 {
+-		// Bad: CLONE_PIDFD failed to provide a pidfd. Reap the process
+-		// before returning.
+-
+-		var err error
+-		for {
+-			var status WaitStatus
+-			// WCLONE is an untyped constant that sets bit 31, so
+-			// it cannot convert directly to int on 32-bit
+-			// GOARCHes. We must convert through another type
+-			// first.
+-			flags := uint(WCLONE)
+-			_, err = Wait4(int(pid), &status, int(flags), nil)
+-			if err != EINTR {
+-				break
+-			}
+-		}
+-		if err != nil {
+-			return err
+-		}
+-
+-		return errpkg.New("clone(CLONE_PIDFD) failed to return pidfd")
+-	}
+-
+-	// Good: CLONE_PIDFD provided a pidfd. Reap the process and close the
+-	// pidfd.
+-	defer Close(int(pidfd))
+-
+-	// ... (Waitid/Siginfo logic removed for kernel 4.4)
+-
+-	return nil
++	// Kernel 4.4.35 不支持 PidFD，直接返回错误以跳过运行时探测
++	return errpkg.New("ENOSYS")
+ }
 --- src/syscall/syscall_linux.go
 +++ src/syscall/syscall_linux.go
 @@ -16,3 +16,2 @@
